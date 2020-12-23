@@ -1,0 +1,485 @@
+---
+title: "Le rebond de la pandémie de la Covid-19 était-il prévisible?"
+author: 'P. Cuchot, P. Fournier, M. Faucher - M2 MODE '
+date: "23/12/2020"
+output:
+  html_document:
+    self_contained: no
+  pdf_document: default
+  word_document: default
+---
+
+```{r, echo=FALSE}
+# Enregistrement URL contenant le logo UR1
+url_1 <- "https://i.postimg.cc/rwfD1rXL/50627138-1958657937580223-5503718831379447808-n.png"
+
+#Le bloc qui suit permet de faire afficher le logo de l'université de Rennes 1 à droite du titre
+```
+
+<script>
+   $(document).ready(function() {
+     $head = $('#header');
+     $head.prepend('<img src=\"`r url_1`\" style=\"float: right;width: 200px;\"/>')
+   });
+</script>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+ 
+# Introduction
+
+
+<div align="justify">Lors de l'annonce du premier confinement général en France le 17 mars 2020, les connaissances scientifiques ainsi que les relevés d'hospitalisations permettaient déjà la publication d’articles estimant le taux d’incidence de la Covid-19 (Roques *et al.*, 2020), l’évolution de la pandémie selon les stratégies de déconfinement (Di Domenicali *et al.*, 2020) ou encore des estimations du nombre de décès évités grâce au confinement (Roux *et al.*, 2020). A l'occasion du deuxième confinement débuté le 30 octobre et ayant pris fin le 16 décembre, il est intéressant de chercher à savoir si la situation actuelle pouvait être envisagée dès la levée du premier confinement. Nous avons cherché à savoir si un modèle épidémiologique réalisé à partir des données d’hospitalisation recueillies pendant la période du confinement permettait de prévoir l’accélération du nombre de cas débutée en juillet.
+
+Pour répondre à cette question, un modèle de type SIHR (figure 1) a été ajusté aux données d’hospitalisation liées à la Covid-19 pendant la période de confinement, mises à disposition sur le site de Santé Publique France. Les résultats obtenus avec ce modèle ont ensuite été comparés avec les données réelles, de la sortie du confinement à la date du 03 novembre 2020.
+
+Le traitement des données ainsi que le système d'équations du modèle ont été librement inspirés de [F. Hamelin](http://f.m.hamelin.free.fr/covid-19.html).
+
+
+# Méthodes 
+
+
+<div align="justify">Pour réaliser ce modèle, nous nous sommes intéressés aux données délivrées par les hôpitaux de France car elles sont un indicateur fiable et accessible de l’évolution de la pandémie. De plus l'effort de recensement de ces données ne devrait pas avoir beaucoup varié tout au long de la période d'étude en opposition à l'effort de test des personnes non hospitalisées.     
+
+Les connaissances actuelles concernant la durée d’immunité, l’existence d’une différence de contagiosité entre les formes asymptomatiques et les formes symptomatiques, ou encore les différences de réponse selon les individus nous ont poussé à garder un modèle qui soit le plus simple possible. Nous avons donc opté pour un modèle de type SIR auquel nous avons ajouté un compartiment H pour les individus hospitalisés. Nous avons aussi cherché à limiter le nombre de paramètres à estimer pour éviter le surparamétrage du modèle, mais aussi pour ne conserver que des paramètres ayant déjà été estimés dans la littérature.
+
+
+
+## Le modèle épidémiologique
+
+<div align="justify">Les hypothèses sous-jacentes au modèle utilisé sont les suivantes :   
+
+  - La population française est spatialement homogène au sein de l'Hexagone  
+  - La population est divisée en groupes d’individus homogènes : tous les individus quelque soit leur âge, leur sexe et leur antécédents médicaux sont égaux vis à vis du virus  
+  - Le taux de mortalité lié à la maladie ne varie pas  
+  - La taille de la population est stable au cours du temps (pas de dynamique démographique)  
+  - La transmission du virus autre que par contact est négligée  
+  - Le R(t) est stable dans le temps  
+  - La guérison de la Covid-19 confère une immunité permanente  
+  - Les individus hospitalisés ne peuvent plus contaminer les individus susceptibles  
+  - Les paramètres associés au temps d’infection, d’hospitalisation et de guérison, ainsi que les taux de contagion et d’hospitalisation sont constants  
+
+Les différents compartiments du modèles ont été définis de la façon suivante :   
+
+*$S(t)$ : Nombre d’individus sensibles au virus au temps t  
+*$I(t)$ : Nombre d’individus infectés et infectieux non hospitalisés au temps t  
+*$H(t)$ : Nombre d’individus infectés et hospitalisés au temps t  
+*$R(t)$ : Nombre d’individus retirés de la dynamique de l'épidémie (décédés ou immunisés) au temps t 
+
+Nous définissons la taille de la population tel que N = S + I + H + R = constante  
+
+Les paramètres du modèle sont les suivants :   
+
+γ : taux de sortie de l'hôpital via guérison ou décès (inverse du temps moyen passé à l'hôpital)  
+α : taux d’hospitalisation (inverse du temps moyen avant hospitalisation)  
+ρ : taux de sortie de l’état infecté via guérison ou décès (inverse du temps moyen avant guérison ou décès)  
+β : taux de transmission du virus par unité de temps (R(t) * ρ). 
+
+Le modèle SIHR utilisé est schématisé ci-dessous …  
+```{r, echo=FALSE}
+# Define variable containing url
+url_2 <- "https://i.postimg.cc/xdGKVdBx/131960231-758369078133615-4874724557821101249-n.png"
+```
+<center><img src="`r url_2`"></center>
+#### figure 1 : Schéma représentatif du modèle SIHR   
+
+… et est traduit sous forme mathématiques ci-après:  
+
+
+<div align="center"><font size="3">$\frac{dS}{dt}=-\beta\frac{S}{N}I$ 
+
+$\frac{dI}{dt}=\beta\frac{S}{N}I-(\alpha+\rho)I$  
+
+$\frac{dH}{dt}=\alpha I-\gamma H$  
+
+$\frac{dR}{dt}=\rho I+\gamma H$  </font></div>    
+
+
+<div align="justify">Nous avons ensuite essayé d'ajuster le modèle aux données réelles pour la période du premier confinement (17 mars au 11 mai 2020). Les données en question sont le nombre de personnes hospitalisés et le nombre d'admission à l'hôpital à la date t.
+
+
+## Application
+
+### Chargement des packages 
+
+```{r warning=FALSE}
+library(rmarkdown)
+library(deSolve)
+library(ggplot2)
+```
+
+
+### Chargement des données   
+
+<div align="justify"> Les données ont été téléchargées [ici](https://www.data.gouv.fr/fr/datasets/donnees-hospitalieres-relatives-a-lepidemie-de-covid-19/). 
+Les jeux de données contiennent des données hospitalières relatives à l'épidémie du COVID-19 par département et sexe du patient.   
+
+Etant donné que notre travail a été basé sur les données couvrant la période du début du premier confinement au 03 novembre 2020, nous avons stocké en ligne les données utilisées pour réaliser ce travail.
+
+
+```{r}
+dataH <- read.csv("https://raw.githubusercontent.com/martin-faucher/etude_covid_19/main/donnees-hospitalieres-covid19-2020-11-03-19h00.csv", sep = ";")
+dataA <- read.csv("https://raw.githubusercontent.com/martin-faucher/etude_covid_19/main/donnees-hospitalieres-nouveaux-covid19-2020-11-03-19h00.csv", sep = ";")
+```
+
+dataH contient : nombre de patients hospitalisés, nombre de personnes actuellement en réanimation ou soins intensifs, nombre cumulé de personnes retournées à domicile, nombre cumulé de personnes décédées.   
+
+dataA contient des données quotidiennes : nombre quotidien de personnes nouvellement hospitalisées, nombre quotidien de nouvelles admissions en réanimation, nombre quotidien de personnes nouvellement décédées, nombre quotidien de nouveaux retours à domicile.   
+
+
+### Sélection des données d'interêt pour le projet 
+
+<div align="justify">Nous avons d'abord sélectionné les données d'interêt pour répondre à la question posée, soit les données relatives aux hospitalisations et admissions par département, agrégeant hommes et femmes.
+
+Dans une volonté de clarté du document, les lignes de codes permettant de préparer le jeu de données à l'analyse, ne sont pas présentées dans le document. Vous pouvez retrouver le traitement des données directement dans le script ayant servi de base à ce document. 
+
+```{r warning=FALSE, include=FALSE}
+# Seules les données agrégeant hommes et femmes sont conservées (modèle non structuré en sexe)
+Z <- which(dataH[,2]==0) # les lignes "0" agrègent hommes et femmes
+dataH <- dataH[Z,]
+
+# Sélection des variables d'intérêt (hospitalisations et admissions par département) 
+dataHH <- dataH[,c(1,4)]  # Département et nombre de personnes hospitalisées
+dataAA <- dataA[,c(1,3)]  # Département et nombre d'admissions par jour
+
+# Les données sont agrégées à l'échelle de la France (modèle spatialement homogène)
+n <- 95               # Nombre de départements en France métropolitaine 
+v <- c(1:19,21:95)    # Départements corses exclus
+
+
+# Récupération des séries temporelles
+ZH <- which(as.integer(as.character(dataH[,1]))==1);
+LH <- length(dataH[ZH,2]);# Longueur de la série H 
+
+ZA <- which(as.integer(as.character(dataA[,1]))==1);
+LA <- length(dataA[ZA,2]);# Longueur de la série A 
+
+
+# Construction de matrices de dimensions (n, LH) et (n, LA)
+HH <- matrix(0,n,LH)    # Matrice des hospitalisés (par département)
+AA <- matrix(0,n,LA)    # Matrice des admissions
+
+for (i in v){ # v = vecteur avec numéros de département 
+  ZH <- which(as.integer(as.character(dataHH[,1]))==i) ;
+  HH[i,] <- dataHH[ZH,2] ;
+  ZA <- which(as.integer(as.character(dataAA[,1]))==i) ;  
+  AA[i,] <- dataAA[ZA,2] ;
+}
+
+
+# Construction de deux vecteurs contenant les données d'interêt
+H <- matrix(0,1,LH)
+for (i in 1:LH) H[i] <- sum(HH[,i])  # Hospitalisés
+Htot <- H                            # Ensemble des données d'hospitalisation conservées dans l'objet Htot
+
+A <- matrix(0,1,LA); 
+for (i in 1:LA) A[i] <- sum(AA[,i])  # Admissions
+Atot <- A                            # Ensemble des données d'admissions conservées dans l'objet Htot
+
+```
+
+
+#### Visualisation des données à partir du 19 mars 
+
+```{r}
+plot(1:LH,H,xlab="Temps écoulé depuis le 19 mars (en jours)",
+     ylab="Nombre de personnes hospitalisées", 
+     main = "Figure 2a : Hospitalisations (19 mars - 11 mai 2020)", col="blue", xlim=c(0,50))
+
+
+plot(1:LA,A,xlab="Temps écoulé depuis le 19 mars (en jours)",
+     ylab="Nombre d'admissions à l'hôpital (par jour)",
+     main = "Figure 2b : Admissions à l'hôpital (19 mars - 11 mai 2020)", col="red",xlim=c(0,50))
+
+```
+
+<div align="justify">Nous observons une tendance croissante du nombre de personnes hospitalisées (figure 2a) ainsi que du nombre d'admission (figure 2b) sur les 15 premiers jours. Cependant, les pentes de H et A s'atténuent peu à peu. Nous attribuons ces tendances à une dynamique de transition suite à la mise en place du confinement.
+Le modèle utilisé ici, suppose que les paramètres sont constants au cours du temps. Pour cette raison, la simulation du modèle commencera 15 jours après le début du confinement, soit à partir du 1er Avril 2020.  
+<div align="justify">En outre, les données d'admission sont plus éparses que les données d'hospitalisation et semblent ainsi moins estimables. Ce phénomène peut être du à une remontée partielle des informations en fin de semaine en raison de la fermeture de certains services administratifs. Ceci se caractérise par de plus faibles admissions les week-ends et jours fériés ainsi que des pics d'admissions en début de semaine.  
+<div align="justify">Pour ces raisons, nous appliquerons notre modèle sur les données d'hospitalisation.   
+
+```{r,include =FALSE}
+T0 <- 13                # Décalage du point de départ 13 jours après le 19 mars 
+Htot <- H[T0:length(H)] # L'ensemble des données d'hospitalisation est conservé
+H <- H[T0:53]           # Troncations des données (du 1 avril au 11 mai = confinement)
+
+
+
+Atot <- A[T0:length(A)] # L'ensemble des données d'admission est conservé
+A <- A[T0:53] 
+LH <- length(H)         # Mise à jour des longeurs des séries temporelles
+LA <- length(A)
+```
+   
+
+#### Visualisation des données tronquées à partir du 1er avril 
+
+```{r}
+plot(1:LH,H,xlab="Temps écoulé depuis le 1er avril (en jours)",
+     ylab = "Nombre d'hospitalisations et admissions",
+     main="Figure 3 : Hospitalisations et admissions journalières \n (1 avril - 11 mai 2020)",
+     col="blue", ylim = c(1,40000), type='l')
+points(1:LA,A, type='l')
+
+par(bty="l")
+legend(x=22, y=40000,legend=c("Personnes hospitalisées", "Personnes admises"), text.font=2, lty=1,
+       col=c("black","blue"), box.lty = 0, bty="l")
+```
+
+
+### Ecriture du modèle 
+
+<div align="justify">Avant d'ajuster le modèle aux données françaises, il est nécessaire de leur attribuer une valeur initiale. Il est nécessaire de fixer au moins un paramètre, pour que le modèle ne soit pas sur-paramétré par rapport aux données utilisées (Sallet et Rapaport *in* http://f.m.hamelin.free.fr/covid-19.html). Nous fixons donc $\rho$, qui a été estimé en Chine par You *et al*. (2020) à 10,91 jours en moyenne.
+
+```{r}
+N <- 64e6                    # Population hexagonale approximative
+rho <- 1/10.91                # Taux de sortie de l'état infecté 
+gamma <- 1/14                 # Taux de sortie de l'hôpital
+R_0 <- 1                      # Nombre de reproduction de base en confinement
+beta <- R_0*rho               # Taux de transmission (calcul très approximatif)
+p <- 0.1                      # Probabilité d'être hospitalisé suite à l'infection
+alpha <- p*rho/(1-p)          # Taux d'hospitalisation
+P0 <- c(beta,alpha,gamma)     # Vecteur des paramètres
+```
+
+Définition des variables du modèle et des conditions initiales (1er avril) :
+
+```{r}
+H0 <- H[1]        # Nombre de personnes hospitalisées au 1er avril
+I0 <- A[1]/alpha  # D'après le modèle, A(t) = alpha*I(t)
+R0 <- N*0.01      # Fixé arbitrairement à 1% d'immunisés 
+S0 <- N-I0-H0-R0  # Taille de la population sensible au 1er avril
+X0 <- c(S0,I0,H0) # Vecteur d'état.
+
+# Construction d'un vecteur de dates pour comparer le modèle et les données :
+t <- 0:(LH-1)
+```
+
+Définition du système d'équation SIHR  
+La fonction SIHR prend en argument 3 vecteurs : le temps, les variables d'état, et les paramètres :
+```{r}
+SIHR = function(t, X, P){
+  beta <- P[1];            # Taux de transmission
+  alpha <- P[2];           # Taux d'hospitalisation
+  gamma <- P[3];           # Taux de sortie d'hôpital
+  
+  S <- X[1]
+  I <- X[2]
+  H <- X[3] # Le vecteur d'état X contient S, I, et H
+  
+  y = beta*S*I/N;       # Nombre de nouvelles infections par jour
+  
+  # D'après le modèle SIHR défini plus haut :
+  dS = -y;              #  dS/dt = - beta*S*I
+  dI = y-(alpha+rho)*I; #  dI/dt = beta*S*I - (alpha+rho)*I
+  dH = alpha*I -gamma*H;#  dH/dt = alpha*I - gamma*H
+  
+  dX=c(dS,dI,dH);       # Renvoie dX/dt, mise en forme demandée par la fonction ode().
+  
+  return(list(dX));
+}
+```
+
+<div align="justify">Afin d'ajuster le modèle SIHR aux données françaises, nous cherchons à estimer les paramètres alpha, beta et gamma ainsi que l'état initial du système tels qu'ils soient les plus vraisemblables d'après les données.
+Pour calculer cette vraisemblance, nous modélisons le processus d'observation de façon stochastique.
+
+
+### Maximisation du log de la vraisemblance du modèle
+
+<div align="justify">Création d'une fonction qui calcule la log-vraisemblance d'un jeu de paramètres et de conditions initiales. La fonction logLike prend pour argument un vecteur de paramètres et de conditions initiales à estimer : beta, alpha, gamma, S, I, H.
+
+```{r}
+logLike=function(theta){
+  P <- theta[1:3];           # Paramètres beta (taux de transmission), alpha (taux d'hospitalisation), et gamma (taux de sortie d'hôpital)
+  X0 <- theta[4:6];          # Conditions initiales 
+  
+  X <- ode(X0,t,SIHR,P)      # Résolution du système 
+  
+  h <- X[,4];                # Hospitalisations théoriques : H(t)
+  a <- P[2]*tail(X[,3],-1);  # Admissions théoriques : alpha*I(t)
+  
+  LLH <- dpois(H,h,log=T)    # Probabilité d'observer H (loi de Poisson)
+  LLA <- dpois(A,a,log=T)    # Probabilité d'observer A (loi de Poisson)
+  LL <- sum(c(LLH,LLA))      # Log transformation du produit des probabilités en somme
+  return(LL);                # Renvoie la log-vraisemblance 
+}
+```
+
+Définition du vecteur des paramètres et des conditions initiales utilisé dans la fonction logLike.  
+Ici, P0 = c (beta,alpha,gamma) et X0 = c(S, I, H).
+
+```{r}
+theta0 <- c(P0,X0)
+```
+
+La fonction optim estime les valeurs des paramètres et conditions initiales maximisant la vraisemblance du modèle.
+
+```{r,include =FALSE}
+opt <- optim(theta0,logLike,control=list(fnscale=-1)) # Maximise le log de la vraisemblance
+```
+
+
+
+# Résultats 
+
+
+Valeurs des paramètres et conditions initiales dont la vraisemblance est maximale :  
+```{r}
+beta <- opt$par[1]   # beta (taux de transmission)
+alpha <- opt$par[2]  # alpha (taux d'hospitalisation)
+gamma <- opt$par[3]  # gamma (taux de sortie d'hopital)
+```
+
+Les valeurs des paramètres optimaux correspondent à :  
+
+**`r opt$par[1]`** pour le taux de transmission  
+**`r opt$par[2]`** pour le taux de d'hospitalisation   
+**`r opt$par[3]`** pour le taux de sortie de l'hopital    
+
+Selon le modèle, les conditions initiales optimales sont : 
+```{r}
+S0 <- opt$par[4]
+I0 <- opt$par[5]
+H0 <- opt$par[6]
+```
+
+Les valeurs des conditions initiales maximisant la vraisemblance correspondent à :   
+**`r opt$par[4]`** individus sensibles  
+**`r opt$par[5]`** individus infectieux  
+**`r opt$par[6]`** individus infectés hospitalisés  
+
+
+Mise à jour des vecteurs des paramètres et conditions initiales avec les nouvelles valeurs estimées : 
+
+```{r}
+P0 <- c(beta,alpha,gamma);         # Vecteur des paramètres 
+X0 <- c(S0,I0,H0);                 # Vecteur des conditions initiales
+```
+
+
+### Simulation du modèle avec les nouveaux paramètres et conditions initiales 
+
+```{r}
+T=219 
+t=0:T      # Mise à jour du vecteur temps
+```
+
+
+Simulation du modèle à partir du 12 mai 2020
+
+```{r, include=FALSE}
+X=ode(X0,t,SIHR,P0)  
+```
+
+
+### Comparaison visuelle de la simulation et des données françaises 
+
+```{r echo=FALSE}
+
+plot(0:(LH-1),H,xlab="Temps écoulé depuis le 1er avril (en jours)",
+     ylab = "Nombre de personnes hospitalisées",
+     main ="Figure 4 : Hospitalisations (19 mars - 11 mai 2020)",
+     col="blue", ylim=c(0,50000), xlim = c(0,230));
+
+lines(X[,1],X[,4]); # Affichage de la simulation 
+
+points(42:length(Htot),Htot[42:length(Htot)], col=2)# Affichage du reste des données 
+legend(65,50000, title = "Hospitalisations", legend = c("19 mars - 11 mai", "12 mai - 11 novembre", "Modèle ajusté (données 19 mars - 11 mai)"), col = c("blue", "red", "black"), pch =c(1,1,NA), lty = c(0,0,1), box.lty = 0)
+```
+
+<div align="justify">Depuis la levée du confinement, le nombre d'hospitalisation/jour a connu un rebond (figure 4). Le modèle ajusté sur les données françaises prédisait un maintien de la diminution du taux d'hospitalisations journalière après la levée du confinement .
+
+<div align="justify">Le modèle utilisé a été ajusté aux données réelles pendant le confinement. Or la majeure différence entre une population confinée et une population non confinée est le taux de contact. 
+
+Pour aller plus loin, nous essayons d'intégrer dans un second modèle l'augmentation du taux de contact entre humains à la sortie du confinement. Pour cela, nous augmentons la valeur du taux de transmission du virus (beta). Nous cherchons à visualiser pour quelle valeur de beta, le modèle ajusté aux données aurait pu prédire un rebond.
+
+
+### Utilisation du même modèle en sortie de confinement induisant une hausse du taux de transmission
+
+<div align="justify">Nous simulons maintenant notre modèle ajusté en prenant pour conditions initiales, les valeurs de S, I et H estimées pour le 11 mai lors de la première simulation. Dans ce modèle nous gardons les valeurs des paramètres alpha et gamma ajustées par la fonction logLike. Nous simulons le modèle jusqu'au 03 novembre en utilisant différentes valeurs pour beta qui soient plus élevées que celle ajustée pour le premier modèle.
+
+Création d'une liste contenant les simulations pour chaque valeur de beta
+
+```{r}
+X_list <- list()
+```
+
+Les conditions initiales correspondent aux valeurs de S, I et H estimées pour le 11 mai lors de la première simulation
+
+```{r}
+S0 <- X[43,2]
+I0 <- X[43,3]
+H0 <- X[43,4]
+
+X0 <- c(S0,I0,H0)
+```
+
+On récupère les paramètres optimaux, en modifiant le taux de transmission. Les valeurs de $\beta$ testées varient de 0,064 à 0,124 avec un pas de 0,01.
+
+```{r}
+i <- 1 # Compteur nécessaire pour remplir X_list
+for(beta in seq(0.064,0.15,by=0.01)){
+  
+  alpha <- opt$par[2]         # alpha (taux d'hospitalisation)
+  gamma <- opt$par[3]         # gamma (taux de sortie de l'hopital)
+  
+  P0 <- c(beta,alpha,gamma);         # Vecteur des paramètres mis à jour
+  
+  # Les solution du modèle sont calculées pour les paramètres et conditions initiales estimés :
+  
+  T=219
+  t=0:T            # Mise à jour du vecteur temps
+  
+  X_list[[i]]=ode(X0,t,SIHR,P0)    # Calcul de la solution 
+  i <- i+1
+}
+```
+
+Affichage du nombre d'individus hospitalisés (données et modèle)
+
+```{r echo=FALSE}
+plot(43:length(Htot),Htot[43:length(Htot)],xlab="Temps écoulé depuis le 1 Avril (en jours)",
+     main ="Figure 5 : Simulations du modèle pour \n différentes valeurs de beta",
+     ylab = "Nombre de personnes hospitalisées",
+     col="blue", ylim=c(0,50000), xlim = c(0,300))
+
+# Décalage des données
+
+points(1:43,Htot[1:43], col=1)
+legend(170,45000, title = "Hospitalisations", legend = c("Données 19 mars - 11 mai", "Données 12 mai - 03 novembre", "Modèle basé sur données de  \nconfinement", "Simulation avec beta différent"), col = c("black", "blue", "black","pink"), text.font=2,pch=c(1,1,NA,NA), lty=c(NA,NA,1,1), bg='white', cex=0.8,box.lty = 0)
+
+for (i in 1:length(X_list)){
+  X_list[[i]][,1] <- X_list[[i]][,1]+44
+  lines(X_list[[i]][,1],X_list[[i]][,4], col=i-1) # affichage de la simulation
+}
+```
+  
+*Nota bene* : les valeurs de $\beta$ pour la figure 5 sont les suivantes (couleur courbe, valeur) : rouge, 0,064 ; vert, 0,074 ; bleu,  0,084 ; cyan,  0,094 ; violet,  0,104 ; jaune, 0,114 ; gris, 0,124. 
+
+# Discussion 
+
+
+<div align="justify">Le modèle ajusté sur les données françaises au cours du premier confinement a prédit un maintien de la diminution du nombre d’hospitalisations après la levée du confinement. Ce modèle ne permettait donc pas de prédire le rebond observé dans le nombre d’hospitalisations.  
+
+L’efficacité du confinement tient dans le fait que le taux de contact entre humains est drastiquement réduit. Ce taux de contact apparaît dans le modèle à travers le paramètre $\beta$ (taux de transmission du virus). Le modèle a été ajusté sur les données du confinement et suppose une constance de la valeur de ses paramètres au cours du temps. Il ne pouvait donc pas prévoir un rebond de l'épidémie après la levée du confinement. 
+
+Ici nous avons cherché pour quelles nouvelles valeurs de $\beta$ le modèle aurait pu prévoir un rebond lors du déconfinement. Pour cela nous avons fait varier les valeurs de $\beta$ entre 0.064 et 0.144. Pour des valeurs inférieures à 0.094, le modèle a prévu un maintien de la diminution du nombre de cas. Pour des valeurs égales ou supérieures à 0.104, le modèle a prévu un rebond de l'épidémie suivant le déconfinement (figure 4).  
+
+Le déconfinement s'est accompagné d'autres modifications - moins majeures que le taux de contact - dans les valeurs des paramètres du modèle. Par exemple le taux de sortie de l'hôpital a été réduit au cours de l'épidémie, en raison des progrès réalisés sur la prise en charge des patients.
+
+En plus de la réaugmentation prévisible du taux de transmission lié à la fin du 1er confinement et à l'augmentation annuelle des déplacements pendant la période estivale, la possibilité d'une seconde vague - et donc certainement d'un second confinement - était envisagée, ne serait-ce que parce que la part de la population ayant été infectée était trop faible pour atteindre une immunité de groupe (Wise, 2020). D'autres scientifiques alertaient aussi du risque de seconde vague causé par d'autres critères, notamment l'arrivée des maladies hivernales, la fatigue du personnel médical, ou encore la réticence des gouvernements à imposer des mesures restrictives (Middleton *et al.*, 2020). En ce qui concerne la possibilité d'une troisième vague, les campagnes de vaccination ayant débuté dans plusieurs pays nous permettent d'être optimistes et d'oser penser que si elle survenait, les conséquences sur l'économie, la santé, et plus globalement notre quotidien seraient réduites.  
+
+## Bibliographie
+
+<div align="justify">Di Domenico, L., Pullano, G., Sabbatini, C. E., Boëlle, P-Y. et Colizza, C., 2020. Impact of lockdown on COVID-19 epidemic in Île-de-France and possible exit strategies. *BMC Medicine*, **18**:240.
+
+Middleton, J., Lopes, H., Michelson, K. et Reid, J., 2020. Planning for a second wave pandemic of COVID-19 and planning for winter. *International Journal of Public Health*, **65**:1525–1527.
+
+Roques, L., Klein, E. K., Papaïx, j., Sar, A. et Soubeyrand, S., 2020. Impact of Lockdown on the Epidemic Dynamics of COVID-19 in France. *Frontiers in Medicine*,  **7**:274.
+
+Roux, J., Massonnaud, C., et Crépey, P., 2020. COVID-19: One-month impact of the French lockdown on the epidemic burden. medRxiv.
+
+Wise, J., 2020. Covid-19: Risk of second wave is very real, say researchers. *British Medical Journal (Online)*, **369**.
+
+You, C., Deng, Y., Hu, W., Sun, J., Lin, Q., Zhou, F., ... et Zhou, X. H., 2020. Estimation of the time-varying reproduction number of COVID-19 outbreak in China. *International Journal of Hygiene and Environmental Health*, **228**:113555.
